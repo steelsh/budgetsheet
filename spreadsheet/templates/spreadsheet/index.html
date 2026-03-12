@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ sheet.name }} — BudgetSheet</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root[data-theme="dark"] {
+    --bg: #0f1117;
+    --bg2: #161b27;
+    --bg3: #1e2537;
+    --border: #2a3550;
+    --border2: #3a4a6a;
+    --accent: #4f9cf9;
+    --accent2: #7bc4f7;
+    --green: #4ade80;
+    --red: #f87171;
+    --yellow: #fbbf24;
+    --text: #e2e8f0;
+    --text2: #94a3b8;
+    --text3: #64748b;
+    --header-bg: #1a2540;
+    --header-text: #7bc4f7;
+    --input-bg: #1a2f4a;
+    --formula-bg: #162040;
+    --row-hover: rgba(79,156,249,0.05);
+    --total-bg: rgba(79,156,249,0.09);
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.3);
+  }
+  :root[data-theme="light"] {
+    --bg: #f0f4fa;
+    --bg2: #ffffff;
+    --bg3: #f5f7fb;
+    --border: #dde3ef;
+    --border2: #c2cde0;
+    --accent: #2563eb;
+    --accent2: #1d4ed8;
+    --green: #16a34a;
+    --red: #dc2626;
+    --yellow: #d97706;
+    --text: #1e293b;
+    --text2: #475569;
+    --text3: #94a3b8;
+    --header-bg: #dbeafe;
+    --header-text: #1e40af;
+    --input-bg: #eff6ff;
+    --formula-bg: #f0f9ff;
+    --row-hover: rgba(37,99,235,0.04);
+    --total-bg: rgba(37,99,235,0.07);
+    --shadow: 0 4px 24px rgba(0,0,0,0.1);
+    --shadow-sm: 0 2px 8px rgba(0,0,0,0.07);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'IBM Plex Sans', sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; overflow-x: hidden; transition: background 0.2s, color 0.2s; }
+
+  .app-shell { display: grid; grid-template-rows: 56px 1fr; grid-template-columns: 220px 1fr; height: 100vh; overflow: hidden; }
+
+  /* TOPBAR */
+  .topbar { grid-column: 1 / -1; background: var(--bg2); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 10px; z-index: 100; box-shadow: var(--shadow-sm); }
+  .topbar-logo { font-family: 'IBM Plex Mono', monospace; font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; white-space: nowrap; }
+  .topbar-divider { width: 1px; height: 22px; background: var(--border); flex-shrink: 0; }
+  .topbar-sheet-name { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+  .topbar-actions { display: flex; gap: 6px; align-items: center; }
+
+  .btn { font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; font-weight: 500; padding: 6px 12px; border-radius: 7px; border: 1px solid var(--border2); background: var(--bg3); color: var(--text2); cursor: pointer; transition: all 0.15s; display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; line-height: 1; text-decoration: none; }
+  .btn:hover { background: var(--border); border-color: var(--accent); color: var(--accent); }
+  .btn svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); color: #fff; }
+
+  .theme-toggle { padding: 5px 10px; border-radius: 20px; font-size: 12px; border: 1px solid var(--border2); background: var(--bg3); cursor: pointer; transition: all 0.15s; color: var(--text2); display: flex; align-items: center; gap: 5px; font-family: 'IBM Plex Sans', sans-serif; }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); }
+
+  .status-indicator { display: flex; align-items: center; gap: 5px; }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 5px var(--green); flex-shrink: 0; }
+  .status-dot.saving { background: var(--yellow); box-shadow: 0 0 5px var(--yellow); animation: pulse 1s infinite; }
+  .status-dot.error { background: var(--red); box-shadow: 0 0 5px var(--red); }
+  .status-text { font-size: 11px; color: var(--text3); }
+
+  .user-badge { display: flex; align-items: center; gap: 6px; padding: 4px 10px 4px 4px; border-radius: 20px; border: 1px solid var(--border2); background: var(--bg3); font-size: 12px; color: var(--text2); }
+  .user-avatar { width: 24px; height: 24px; border-radius: 50%; background: var(--accent); color: #fff; font-size: 11px; font-weight: 600; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  /* SIDEBAR */
+  .sidebar { background: var(--bg2); border-right: 1px solid var(--border); overflow-y: auto; display: flex; flex-direction: column; }
+  .sidebar-section { padding: 12px 10px 8px; }
+  .sidebar-title { font-size: 10px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text3); padding: 2px 8px 8px; }
+  .sidebar-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 8px; cursor: pointer; font-size: 12.5px; color: var(--text2); transition: all 0.12s; margin-bottom: 2px; }
+  .sidebar-item:hover { background: var(--bg3); color: var(--accent); }
+  .sidebar-item.active { background: rgba(79,156,249,0.12); color: var(--accent); font-weight: 500; }
+  [data-theme="light"] .sidebar-item.active { background: rgba(37,99,235,0.1); }
+  .sidebar-item svg { width: 13px; height: 13px; flex-shrink: 0; }
+  .sidebar-item span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sidebar-sep { height: 1px; background: var(--border); margin: 4px 10px 8px; }
+  .legend-item { display: flex; align-items: center; gap: 8px; font-size: 11px; color: var(--text3); padding: 3px 8px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; border: 1px solid var(--border2); flex-shrink: 0; }
+  .sidebar-footer { margin-top: auto; padding: 8px 10px; border-top: 1px solid var(--border); }
+  .sidebar-footer-link { display: flex; align-items: center; gap: 8px; padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--text3); text-decoration: none; transition: all 0.12s; }
+  .sidebar-footer-link:hover { background: var(--bg3); color: var(--accent); }
+  .sidebar-footer-link svg { width: 13px; height: 13px; flex-shrink: 0; }
+
+  /* FORMULA BAR */
+  .formula-bar { display: flex; align-items: center; gap: 8px; padding: 5px 14px; background: var(--bg2); border-bottom: 1px solid var(--border); font-family: 'IBM Plex Mono', monospace; font-size: 12px; }
+  .formula-bar-ref { min-width: 52px; background: var(--bg3); border: 1px solid var(--border); border-radius: 5px; padding: 3px 8px; color: var(--accent); text-align: center; font-weight: 500; }
+  .formula-bar-eq { color: var(--text3); font-weight: 600; }
+  .formula-bar-value { flex: 1; background: transparent; border: none; color: var(--text2); font-family: 'IBM Plex Mono', monospace; font-size: 12px; outline: none; }
+
+  /* MAIN */
+  .main-content { display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+  .table-container { flex: 1; overflow: auto; position: relative; }
+
+  /* TABLE */
+  .sheet-table { border-collapse: collapse; min-width: 100%; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; }
+  .sheet-table th.row-num, .sheet-table td.row-num { background: var(--bg2); border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); color: var(--text3); font-size: 10px; text-align: center; width: 32px; min-width: 32px; user-select: none; position: sticky; left: 0; z-index: 2; }
+  .col-header-row th { background: var(--header-bg); color: var(--header-text); border-bottom: 2px solid var(--accent); border-right: 1px solid var(--border); padding: 6px 12px; font-weight: 600; font-size: 11px; letter-spacing: 0.04em; position: sticky; top: 0; z-index: 10; white-space: nowrap; text-align: center; }
+  .col-header-row th.row-num { z-index: 20; background: var(--bg2); }
+  .sheet-table thead th { position: sticky; top: 0; z-index: 10; }
+  .sheet-table .row-num { position: sticky; left: 0; z-index: 9; }
+  .sheet-table thead .row-num { z-index: 11; }
+  .sheet-table tbody tr { transition: background 0.1s; }
+  .sheet-table tbody tr:hover { background: var(--row-hover); }
+  .sheet-table td { border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 0; vertical-align: middle; position: relative; }
+  .cell-wrap { display: flex; align-items: center; padding: 5px 10px; min-height: 30px; width: 100%; position: relative; }
+  td.cell-header .cell-wrap { background: var(--header-bg); color: var(--header-text); font-weight: 600; font-size: 11px; letter-spacing: 0.05em; justify-content: center; }
+  td.cell-label .cell-wrap { color: var(--text2); font-family: 'IBM Plex Sans', sans-serif; font-size: 12px; }
+  td.cell-input .cell-wrap { background: var(--input-bg); color: var(--accent); cursor: text; }
+  td.cell-formula .cell-wrap { background: var(--formula-bg); color: var(--text); }
+  td.cell-total .cell-wrap { background: var(--total-bg); font-weight: 600; color: var(--text); border-top: 1px solid var(--border2); }
+  td.align-right .cell-wrap { justify-content: flex-end; }
+  td.selected { outline: 2px solid var(--accent); outline-offset: -2px; z-index: 5; }
+  td.selected .cell-wrap { background: rgba(79,156,249,0.12) !important; }
+  [data-theme="light"] td.selected .cell-wrap { background: rgba(37,99,235,0.1) !important; }
+  td.flash-update { animation: flash 0.5s ease; }
+  @keyframes flash { 0% { background: rgba(79,156,249,0.25); } 100% { background: transparent; } }
+  .cell-editor { position: absolute; inset: 0; background: var(--input-bg); border: 2px solid var(--accent); color: var(--accent); font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; padding: 4px 10px; outline: none; z-index: 20; width: 100%; min-width: 120px; }
+  .cell-bold { font-weight: 600; }
+  .cell-italic { font-style: italic; }
+  .val-negative { color: var(--red) !important; }
+  .comment-dot { position: absolute; top: 2px; right: 2px; width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); }
+
+  /* SEARCH */
+  .search-wrap { position: relative; }
+  .search-input { background: var(--bg3); border: 1px solid var(--border2); border-radius: 7px; padding: 5px 10px 5px 28px; color: var(--text); font-size: 12px; width: 150px; outline: none; font-family: 'IBM Plex Sans', sans-serif; transition: border-color 0.15s, width 0.2s; }
+  .search-input:focus { border-color: var(--accent); width: 190px; }
+  .search-icon { position: absolute; left: 8px; top: 50%; transform: translateY(-50%); color: var(--text3); pointer-events: none; width: 13px; height: 13px; }
+  .search-results { display: none; position: absolute; top: 38px; left: 0; background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; max-height: 280px; overflow-y: auto; z-index: 999; box-shadow: var(--shadow); min-width: 300px; }
+
+  /* NOTIFS */
+  .notif-container { position: fixed; bottom: 20px; right: 20px; z-index: 1000; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
+  .notif { background: var(--bg2); border: 1px solid var(--border2); border-radius: 10px; padding: 10px 16px; font-size: 13px; color: var(--text); display: flex; align-items: center; gap: 8px; box-shadow: var(--shadow); animation: slideIn 0.2s ease; pointer-events: auto; max-width: 300px; }
+  .notif.success { border-left: 3px solid var(--green); }
+  .notif.error { border-left: 3px solid var(--red); }
+  .notif.info { border-left: 3px solid var(--accent); }
+  @keyframes slideIn { from{transform:translateX(20px);opacity:0} to{transform:none;opacity:1} }
+
+  /* MODALS */
+  .modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; display: none; align-items: center; justify-content: center; padding: 16px; }
+  [data-theme="light"] .modal-overlay { background: rgba(0,0,0,0.3); }
+  .modal-overlay.open { display: flex; }
+  .modal { background: var(--bg2); border: 1px solid var(--border2); border-radius: 14px; padding: 24px; min-width: 360px; max-width: 540px; width: 100%; box-shadow: var(--shadow); }
+  .modal-title { font-size: 15px; font-weight: 600; margin-bottom: 18px; color: var(--text); display: flex; align-items: center; gap: 10px; }
+  .modal-title-icon { width: 32px; height: 32px; border-radius: 8px; background: rgba(79,156,249,0.12); display: flex; align-items: center; justify-content: center; color: var(--accent); flex-shrink: 0; }
+  [data-theme="light"] .modal-title-icon { background: rgba(37,99,235,0.1); }
+  .modal-body { font-size: 13px; color: var(--text2); line-height: 1.6; }
+  .modal-footer { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; }
+  .form-label { font-size: 11px; font-weight: 600; color: var(--text3); display: block; margin-bottom: 5px; letter-spacing: 0.05em; text-transform: uppercase; }
+  .form-input { width: 100%; background: var(--bg3); border: 1px solid var(--border2); border-radius: 8px; padding: 8px 12px; color: var(--text); font-size: 13px; font-family: 'IBM Plex Sans', sans-serif; outline: none; transition: border-color 0.15s; }
+  .form-input:focus { border-color: var(--accent); }
+
+  /* HISTORY TABLE */
+  .history-table { width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'IBM Plex Mono', monospace; }
+  .history-table th, .history-table td { padding: 7px 10px; text-align: left; border-bottom: 1px solid var(--border); }
+  .history-table th { color: var(--text3); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .history-table tr:last-child td { border-bottom: none; }
+
+  /* DROP AREA */
+  .drop-area { border: 2px dashed var(--border2); border-radius: 10px; padding: 28px 20px; text-align: center; cursor: pointer; transition: all 0.15s; background: var(--bg3); }
+  .drop-area:hover { border-color: var(--accent); }
+  .drop-area p { color: var(--text2); font-size: 13px; margin-top: 8px; }
+
+  /* SCROLLBAR */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+  /* STATS BAR */
+  .stats-bar { background: var(--bg2); border-top: 1px solid var(--border); padding: 4px 16px; display: flex; align-items: center; gap: 16px; font-size: 11px; color: var(--text3); font-family: 'IBM Plex Mono', monospace; }
+  .stats-bar span { color: var(--text2); font-weight: 500; }
+
+  /* LOADING */
+  .loading-overlay { position: absolute; inset: 0; background: rgba(15,17,23,0.6); display: none; align-items: center; justify-content: center; z-index: 50; }
+  [data-theme="light"] .loading-overlay { background: rgba(240,244,250,0.7); }
+  .spinner { width: 30px; height: 30px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.6s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="app-shell">
+
+  <!-- TOPBAR -->
+  <header class="topbar">
+    <span class="topbar-logo">◈ BudgetSheet</span>
+    <div class="topbar-divider"></div>
+    <span class="topbar-sheet-name" id="sheetName" title="{{ sheet.name }}">{{ sheet.name }}</span>
+
+    <div class="topbar-actions">
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-text" id="statusText">Готов</span>
+      </div>
+      <div class="topbar-divider"></div>
+
+      <!-- Search -->
+      <div class="search-wrap">
+        <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        <input id="searchInput" class="search-input" placeholder="Поиск..." oninput="doSearch(this.value)" onfocus="showSearchResults()" onblur="setTimeout(hideSearchResults,200)">
+        <div id="searchResults" class="search-results"></div>
+      </div>
+      <div class="topbar-divider"></div>
+
+      <button class="btn" onclick="exportExcel()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Экспорт
+      </button>
+      <button class="btn" onclick="openSnapshots()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+        Версии
+      </button>
+      <button class="btn" onclick="openHistory()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>
+        История
+      </button>
+      <button class="btn" onclick="location.href='/compare/'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Сравнить
+      </button>
+      <button class="btn" onclick="openImport()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        Импорт
+      </button>
+      <button class="btn" onclick="location.href='/apply-data/'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 17l4 4 4-4"/><path d="M12 12v9"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+        Новый год
+      </button>
+      <div class="topbar-divider"></div>
+
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <span id="themeIcon">☀️</span>
+        <span id="themeLabel">Светлая</span>
+      </button>
+      <div class="topbar-divider"></div>
+
+      <div class="user-badge">
+        <div class="user-avatar">{{ request.user.username|first|upper }}</div>
+        {{ request.user.username }}
+      </div>
+      <a href="/logout/" class="btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        Выйти
+      </a>
+    </div>
+  </header>
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+    <div class="sidebar-section">
+      <div class="sidebar-title">Листы</div>
+      {% for s in sheets %}
+      <div class="sidebar-item {% if s.id == sheet.id %}active{% endif %}" onclick="location.href='/sheet/{{ s.id }}/'">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+        <span>{{ s.name }}</span>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="sidebar-sep"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Легенда</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--input-bg)"></div>Редактируемая</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--formula-bg)"></div>Формула</div>
+      <div class="legend-item"><div class="legend-dot" style="background:var(--header-bg)"></div>Заголовок</div>
+    </div>
+
+    <div class="sidebar-sep"></div>
+
+    <div class="sidebar-section">
+      <div class="sidebar-title">Управление</div>
+      <div style="padding: 0 8px; font-size: 11px; color: var(--text3); line-height: 2.1;">
+        <div>🖱 Двойной клик — редактировать</div>
+        <div>⏎ Enter / Tab — подтвердить</div>
+        <div>⎋ Esc — отменить</div>
+        <div>↑↓←→ Стрелки — навигация</div>
+        <div>🖱 ПКМ — меню ячейки</div>
+      </div>
+    </div>
+
+    <div class="sidebar-footer">
+      <a href="/compare/" class="sidebar-footer-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 20V10"/><path d="M12 20V4"/><path d="M6 20v-6"/></svg>
+        Сравнить листы
+      </a>
+      <a href="/apply-data/" class="sidebar-footer-link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 17l4 4 4-4"/><path d="M12 12v9"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+        Применить новый год
+      </a>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <main class="main-content">
+    <div class="formula-bar">
+      <span class="formula-bar-ref" id="fbarRef">—</span>
+      <span class="formula-bar-eq">ƒx</span>
+      <input class="formula-bar-value" id="fbarValue" readonly placeholder="Выберите ячейку...">
+    </div>
+
+    <div class="table-container" id="tableContainer">
+      <div class="loading-overlay" id="loadingOverlay"><div class="spinner"></div></div>
+      <table class="sheet-table" id="sheetTable">
+        <thead id="tableHead"></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+
+    <div class="stats-bar">
+      <div>Ячеек: <span id="statCells">—</span></div>
+      <div>Формул: <span id="statFormulas">—</span></div>
+      <div>Редакт.: <span id="statInputs">—</span></div>
+      <div id="selectionStats" style="margin-left:auto;color:var(--text2)"></div>
+    </div>
+  </main>
+</div>
+
+<div class="notif-container" id="notifContainer"></div>
+<form id="csrfForm" style="display:none">{% csrf_token %}</form>
+
+<!-- HISTORY MODAL -->
+<div class="modal-overlay" id="historyModal">
+  <div class="modal" style="min-width:500px">
+    <div class="modal-title">
+      <div class="modal-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg></div>
+      История изменений
+    </div>
+    <div class="modal-body" id="historyBody">Выберите ячейку для просмотра истории</div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('historyModal')">Закрыть</button></div>
+  </div>
+</div>
+
+<!-- IMPORT MODAL -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal">
+    <div class="modal-title">
+      <div class="modal-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg></div>
+      Импорт Excel файла
+    </div>
+    <div class="modal-body">
+      <div class="drop-area" id="dropArea" onclick="document.getElementById('fileInput').click()">
+        <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="1.5"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+        <p>Нажмите или перетащите <strong>.xlsx</strong> файл</p>
+        <p style="font-size:11px;margin-top:4px;color:var(--text3)">Поддерживается только .xlsx</p>
+      </div>
+      <input type="file" id="fileInput" accept=".xlsx" style="display:none">
+      <div style="margin-top:14px">
+        <label class="form-label">Название листа (опционально)</label>
+        <input id="importSheetName" class="form-input" placeholder="Например: Бюджет 2025">
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('importModal')">Отмена</button>
+      <button class="btn btn-primary" onclick="doImport()">Импортировать</button>
+    </div>
+  </div>
+</div>
+
+<!-- SNAPSHOTS MODAL -->
+<div class="modal-overlay" id="snapshotsModal">
+  <div class="modal" style="min-width:540px">
+    <div class="modal-title">
+      <div class="modal-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+      Версии таблицы
+    </div>
+    <div class="modal-body">
+      <div style="display:flex;gap:8px;margin-bottom:16px">
+        <input id="snapNote" class="form-input" placeholder="Комментарий к версии (необязательно)" style="flex:1">
+        <button class="btn btn-primary" onclick="createSnapshot()">Сохранить</button>
+      </div>
+      <div id="snapshotsList" style="max-height:320px;overflow-y:auto"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-primary" onclick="closeModal('snapshotsModal')">Закрыть</button></div>
+  </div>
+</div>
+
+<!-- COMMENT MODAL -->
+<div class="modal-overlay" id="commentModal">
+  <div class="modal" style="min-width:380px">
+    <div class="modal-title">
+      <div class="modal-title-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></div>
+      Комментарий — <span id="commentCellRef" style="color:var(--accent)"></span>
+    </div>
+    <div class="modal-body">
+      <textarea id="commentText" rows="4" class="form-input" style="resize:vertical" placeholder="Введите комментарий..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal('commentModal')">Отмена</button>
+      <button class="btn" style="color:var(--red);border-color:var(--red)" onclick="saveComment('')">Удалить</button>
+      <button class="btn btn-primary" onclick="saveComment(document.getElementById('commentText').value)">Сохранить</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const SHEET_ID = {{ sheet.id }};
+let sheetData = null;
+let cellMap = {};
+let selectedCell = null;
+let activeEditor = null;
+let editingCell = null;
+
+// THEME
+function initTheme() {
+  const saved = localStorage.getItem('bs-theme') || 'dark';
+  applyTheme(saved);
+}
+function toggleTheme() {
+  const cur = document.documentElement.getAttribute('data-theme');
+  applyTheme(cur === 'dark' ? 'light' : 'dark');
+}
+function applyTheme(theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('bs-theme', theme);
+  document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀️' : '🌙';
+  document.getElementById('themeLabel').textContent = theme === 'dark' ? 'Светлая' : 'Тёмная';
+}
+
+// INIT
+document.addEventListener('DOMContentLoaded', () => { initTheme(); loadSheet(); });
+
+async function loadSheet() {
+  showLoading(true);
+  try {
+    const resp = await fetch(`/api/sheet/${SHEET_ID}/data/`);
+    sheetData = await resp.json();
+    renderTable(sheetData);
+    updateStats();
+  } catch(e) { notify('Ошибка загрузки данных', 'error'); }
+  showLoading(false);
+}
+
+// RENDER
+function renderTable(data) {
+  cellMap = {};
+  const cells = data.cells;
+  const maxRow = data.max_row, maxCol = data.max_col;
+  cells.forEach(c => { cellMap[`${c.row},${c.col}`] = c; });
+
+  let headerHTML = '<tr class="col-header-row"><th class="row-num"></th>';
+  for (let c = 0; c <= maxCol; c++) headerHTML += `<th>${colLetter(c)}</th>`;
+  headerHTML += '</tr>';
+  document.getElementById('tableHead').innerHTML = headerHTML;
+
+  let bodyHTML = '';
+  const skipCells = new Set();
+  for (let r = 0; r <= maxRow; r++) {
+    bodyHTML += `<tr><td class="row-num">${r + 1}</td>`;
+    for (let c = 0; c <= maxCol; c++) {
+      const key = `${r},${c}`;
+      if (skipCells.has(key)) continue;
+      const cell = cellMap[key];
+      if (!cell) { bodyHTML += `<td><div class="cell-wrap"></div></td>`; continue; }
+      if (cell.row_span > 1 || cell.col_span > 1) {
+        for (let dr = 0; dr < cell.row_span; dr++)
+          for (let dc = 0; dc < cell.col_span; dc++)
+            if (dr || dc) skipCells.add(`${r+dr},${c+dc}`);
+      }
+      const typeClass = getCellTypeClass(cell);
+      const alignClass = isNumericCell(cell) ? 'align-right' : '';
+      const boldClass = cell.bold ? 'cell-bold' : '';
+      const italicClass = cell.italic ? 'cell-italic' : '';
+      let style = '';
+      if (cell.bg_color) style += `background-color:${cell.bg_color};`;
+      if (cell.text_color) style += `color:${cell.text_color};`;
+      const displayVal = cell.formatted || cell.value || '';
+      const valClass = getValueClass(cell);
+      const spanAttrs = cell.col_span > 1 ? ` colspan="${cell.col_span}"` : '';
+      const rowspanAttr = cell.row_span > 1 ? ` rowspan="${cell.row_span}"` : '';
+      const commentAttr = cell.comment ? `data-comment="${escapeAttr(cell.comment)}"` : '';
+      const commentDot = cell.comment ? `<div class="comment-dot"></div>` : '';
+      bodyHTML += `<td class="${typeClass} ${alignClass}" data-row="${r}" data-col="${c}" data-editable="${cell.editable}" data-formula="${escapeAttr(cell.formula)}" data-value="${escapeAttr(cell.value || '')}" ${commentAttr}${spanAttrs}${rowspanAttr} onclick="selectCell(this)" ondblclick="startEdit(this)" oncontextmenu="showCellMenu(event,this)">
+        <div class="cell-wrap ${boldClass} ${italicClass} ${valClass}" style="${style}"><span class="cell-display">${escapeHTML(displayVal)}</span></div>${commentDot}
+      </td>`;
+    }
+    bodyHTML += `</tr>`;
+  }
+  document.getElementById('tableBody').innerHTML = bodyHTML;
+}
+
+function getCellTypeClass(cell) {
+  if (cell.type === 'header') return 'cell-header';
+  if (cell.type === 'label') {
+    const v = (cell.value || '').toLowerCase();
+    if (v.includes('итого') || v.includes('total') || v.includes('прибыль')) return 'cell-label cell-total';
+    return 'cell-label';
+  }
+  if (cell.type === 'formula') return 'cell-formula';
+  if (cell.type === 'input') return 'cell-input';
+  return '';
+}
+function isNumericCell(cell) { return cell.format_type !== '' || cell.type === 'formula' || (cell.type === 'input' && !isNaN(parseFloat(cell.value))); }
+function getValueClass(cell) {
+  if (cell.format_type === 'currency' || cell.format_type === 'number') {
+    const v = parseFloat(cell.value);
+    if (!isNaN(v) && v < 0) return 'val-negative';
+  }
+  return '';
+}
+
+// SELECTION
+function selectCell(td) {
+  if (activeEditor) return;
+  document.querySelectorAll('td.selected').forEach(t => t.classList.remove('selected'));
+  td.classList.add('selected');
+  selectedCell = td;
+  const r = parseInt(td.dataset.row), c = parseInt(td.dataset.col);
+  const cell = cellMap[`${r},${c}`];
+  document.getElementById('fbarRef').textContent = `${colLetter(c)}${r+1}`;
+  const fbarVal = document.getElementById('fbarValue');
+  if (cell) { fbarVal.value = cell.formula || cell.value || ''; fbarVal.style.color = cell.formula ? 'var(--green)' : ''; }
+  if (cell && cell.value) {
+    const v = parseFloat(cell.value);
+    document.getElementById('selectionStats').textContent = !isNaN(v) ? `Значение: ${formatNumber(v, cell.format_type)}` : '';
+  } else { document.getElementById('selectionStats').textContent = ''; }
+}
+
+// EDITING
+function startEdit(td) {
+  if (td.dataset.editable !== 'true') { if (td.dataset.formula) notify(`Формула: ${td.dataset.formula}`, 'info'); return; }
+  if (activeEditor) cancelEdit();
+  editingCell = td;
+  const input = document.createElement('input');
+  input.className = 'cell-editor'; input.value = td.dataset.value; input.type = 'text';
+  let committed = false;
+  input.addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); if (!committed) { committed = true; commitEdit(input.value); } }
+    if (e.key === 'Escape') { committed = true; cancelEdit(); }
+    if (e.key === 'Tab') { e.preventDefault(); if (!committed) { committed = true; commitEdit(input.value); } }
+  });
+  input.addEventListener('blur', () => { if (!committed) { committed = true; commitEdit(input.value); } });
+  td.appendChild(input); input.focus(); input.select(); activeEditor = input;
+}
+function cancelEdit() { if (activeEditor) { activeEditor.remove(); activeEditor = null; editingCell = null; } }
+
+async function commitEdit(newValue) {
+  if (!editingCell || !activeEditor) return;
+  const td = editingCell, row = parseInt(td.dataset.row), col = parseInt(td.dataset.col), oldValue = td.dataset.value;
+  activeEditor.remove(); activeEditor = null; editingCell = null;
+  if (newValue === oldValue) return;
+  setStatus('saving');
+  try {
+    const resp = await fetch(`/api/sheet/${SHEET_ID}/update/`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') },
+      body: JSON.stringify({ row, col, value: newValue }),
+    });
+    if (!resp.ok) { notify('Ошибка сервера: ' + resp.status, 'error'); setStatus('error'); updateCellDisplay(td, oldValue); return; }
+    const data = await resp.json();
+    if (!data.success) { notify(data.error || 'Ошибка сохранения', 'error'); setStatus('error'); updateCellDisplay(td, oldValue); return; }
+    const ef = data.edited_cell.formatted || data.edited_cell.value;
+    td.dataset.value = data.edited_cell.value; updateCellDisplay(td, ef);
+    if (cellMap[`${row},${col}`]) { cellMap[`${row},${col}`].value = data.edited_cell.value; cellMap[`${row},${col}`].formatted = ef; }
+    data.updates.forEach(u => {
+      const depTd = document.querySelector(`td[data-row="${u.row}"][data-col="${u.col}"]`);
+      if (depTd) { depTd.dataset.value = u.value; updateCellDisplay(depTd, u.formatted, true); }
+      const k = `${u.row},${u.col}`; if (cellMap[k]) { cellMap[k].value = u.value; cellMap[k].formatted = u.formatted; }
+    });
+    notify(`Сохранено. Формул обновлено: ${data.updates_count}`, 'success'); setStatus('ready');
+  } catch(e) { notify('Ошибка соединения', 'error'); setStatus('error'); }
+}
+function updateCellDisplay(td, v, flash = false) {
+  const s = td.querySelector('.cell-display'); if (s) s.textContent = v;
+  if (flash) { td.classList.remove('flash-update'); void td.offsetWidth; td.classList.add('flash-update'); setTimeout(() => td.classList.remove('flash-update'), 500); }
+}
+
+// KEYBOARD
+document.addEventListener('keydown', e => {
+  if (activeEditor || !selectedCell) return;
+  const r = parseInt(selectedCell.dataset.row), c = parseInt(selectedCell.dataset.col);
+  let nr = r, nc = c;
+  if (e.key === 'ArrowUp') { nr = r - 1; e.preventDefault(); }
+  else if (e.key === 'ArrowDown') { nr = r + 1; e.preventDefault(); }
+  else if (e.key === 'ArrowLeft') { nc = c - 1; e.preventDefault(); }
+  else if (e.key === 'ArrowRight') { nc = c + 1; e.preventDefault(); }
+  else if (e.key === 'Enter' || e.key === 'F2') { e.preventDefault(); startEdit(selectedCell); return; }
+  else if (e.key === 'Delete' || e.key === 'Backspace') { if (selectedCell.dataset.editable === 'true') startEdit(selectedCell); return; }
+  if (nr !== r || nc !== c) { const next = document.querySelector(`td[data-row="${nr}"][data-col="${nc}"]`); if (next) selectCell(next); }
+});
+
+// HISTORY
+async function openHistory() {
+  openModal('historyModal');
+  const body = document.getElementById('historyBody');
+  if (!selectedCell) { body.innerHTML = '<p style="color:var(--text3)">Сначала выберите ячейку в таблице</p>'; return; }
+  const r = parseInt(selectedCell.dataset.row), c = parseInt(selectedCell.dataset.col);
+  body.innerHTML = '<p style="color:var(--text3)">Загрузка...</p>';
+  try {
+    const resp = await fetch(`/api/sheet/${SHEET_ID}/cell/${r}/${c}/history/`);
+    const data = await resp.json();
+    if (!data.history.length) { body.innerHTML = `<p>Ячейка <b style="color:var(--accent)">${data.cell_ref}</b> ещё не изменялась</p>`; return; }
+    let html = `<p style="margin-bottom:12px;font-size:12px">Ячейка <b style="color:var(--accent)">${data.cell_ref}</b> — ${data.history.length} изм.</p>`;
+    html += '<table class="history-table"><thead><tr><th>Было</th><th>Стало</th><th>Время</th><th>Кто</th></tr></thead><tbody>';
+    data.history.forEach(h => { html += `<tr><td style="color:var(--red)">${h.old_value || '—'}</td><td style="color:var(--green)">${h.new_value || '—'}</td><td>${h.changed_at}</td><td>${h.changed_by}</td></tr>`; });
+    html += '</tbody></table>'; body.innerHTML = html;
+  } catch(e) { body.innerHTML = '<p style="color:var(--red)">Ошибка загрузки</p>'; }
+}
+
+// IMPORT
+function openImport() { openModal('importModal'); }
+document.getElementById('fileInput').addEventListener('change', e => {
+  if (e.target.files[0]) document.getElementById('dropArea').querySelectorAll('p')[0].innerHTML = `✅ <strong>${e.target.files[0].name}</strong>`;
+});
+async function doImport() {
+  const fi = document.getElementById('fileInput');
+  if (!fi.files[0]) { notify('Выберите файл', 'error'); return; }
+  showLoading(true); closeModal('importModal');
+  const fd = new FormData();
+  fd.append('file', fi.files[0]); fd.append('sheet_name', document.getElementById('importSheetName').value || fi.files[0].name.replace('.xlsx',''));
+  try {
+    const resp = await fetch('/api/import/', { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') }, body: fd });
+    const data = await resp.json();
+    if (data.success) { notify(data.message, 'success'); location.href = `/sheet/${data.sheet_id}/`; } else { notify(data.error, 'error'); }
+  } catch(e) { notify('Ошибка импорта', 'error'); }
+  showLoading(false);
+}
+
+// SNAPSHOTS
+async function openSnapshots() { openModal('snapshotsModal'); await loadSnapshots(); }
+async function loadSnapshots() {
+  const resp = await fetch(`/api/sheet/${SHEET_ID}/snapshots/`);
+  const data = await resp.json();
+  const list = document.getElementById('snapshotsList');
+  if (!data.snapshots.length) { list.innerHTML = '<div style="color:var(--text3);font-size:13px;padding:12px 0;text-align:center">Нет сохранённых версий</div>'; return; }
+  list.innerHTML = data.snapshots.map(s => `
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHTML(s.name)}</div>
+        ${s.note ? `<div style="font-size:11px;color:var(--text3)">${escapeHTML(s.note)}</div>` : ''}
+        <div style="font-size:11px;color:var(--text3)">${s.created_at} · ${escapeHTML(s.created_by)}</div>
+      </div>
+      <button class="btn" onclick="restoreSnapshot(${s.id})" style="color:var(--yellow);border-color:var(--yellow);flex-shrink:0">Откатить</button>
+    </div>`).join('');
+}
+async function createSnapshot() {
+  const note = document.getElementById('snapNote').value.trim();
+  const resp = await fetch(`/api/sheet/${SHEET_ID}/snapshots/create/`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }, body: JSON.stringify({ note }) });
+  const data = await resp.json();
+  if (data.success) { document.getElementById('snapNote').value = ''; notify('Версия сохранена: ' + data.name, 'success'); await loadSnapshots(); }
+}
+async function restoreSnapshot(snapId) {
+  if (!confirm('Откатить таблицу к этой версии? Текущее состояние будет сохранено автоматически.')) return;
+  const resp = await fetch(`/api/sheet/${SHEET_ID}/snapshots/${snapId}/restore/`, { method: 'POST', headers: { 'X-CSRFToken': getCookie('csrftoken') } });
+  const data = await resp.json();
+  if (data.success) { notify(data.message, 'success'); closeModal('snapshotsModal'); await loadSheet(); } else { notify(data.error || 'Ошибка', 'error'); }
+}
+
+// COMMENTS
+let commentRow = null, commentCol = null;
+function openComment(row, col, currentComment) {
+  commentRow = row; commentCol = col;
+  document.getElementById('commentCellRef').textContent = `${colLetter(col)}${row + 1}`;
+  document.getElementById('commentText').value = currentComment || '';
+  openModal('commentModal');
+}
+async function saveComment(text) {
+  if (commentRow === null) return;
+  const resp = await fetch(`/api/sheet/${SHEET_ID}/comment/`, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCookie('csrftoken') }, body: JSON.stringify({ row: commentRow, col: commentCol, comment: text }) });
+  const data = await resp.json();
+  if (data.success) {
+    const key = `${commentRow},${commentCol}`; if (cellMap[key]) cellMap[key].comment = text;
+    const td = document.querySelector(`td[data-row="${commentRow}"][data-col="${commentCol}"]`);
+    if (td) { td.querySelector('.comment-dot')?.remove(); if (text) { const d = document.createElement('div'); d.className = 'comment-dot'; td.appendChild(d); } }
+    notify(text ? 'Комментарий сохранён' : 'Комментарий удалён', 'success'); closeModal('commentModal');
+  }
+}
+
+// CONTEXT MENU
+let ctxMenu = null;
+function showCellMenu(e, td) {
+  e.preventDefault(); removeCtxMenu();
+  const row = parseInt(td.dataset.row), col = parseInt(td.dataset.col), comment = td.dataset.comment || '';
+  const menu = document.createElement('div');
+  menu.id = 'ctxMenu';
+  menu.style.cssText = `position:fixed;top:${e.clientY}px;left:${e.clientX}px;background:var(--bg2);border:1px solid var(--border2);border-radius:10px;padding:4px;min-width:190px;z-index:9999;box-shadow:var(--shadow);font-size:13px`;
+  const items = [
+    ['💬 ' + (comment ? 'Изменить комментарий' : 'Добавить комментарий'), () => openComment(row, col, comment)],
+    ['📋 История ячейки', () => { selectCell(td); openHistory(); }],
+  ];
+  if (td.dataset.editable === 'true') items.unshift(['✏️ Редактировать', () => startEdit(td)]);
+  items.forEach(([label, fn]) => {
+    const item = document.createElement('div');
+    item.textContent = label; item.style.cssText = 'padding:8px 12px;cursor:pointer;border-radius:7px;transition:background .1s';
+    item.onmouseover = () => item.style.background = 'rgba(79,156,249,.1)'; item.onmouseout = () => item.style.background = '';
+    item.onclick = () => { removeCtxMenu(); fn(); }; menu.appendChild(item);
+  });
+  document.body.appendChild(menu); ctxMenu = menu;
+  setTimeout(() => document.addEventListener('click', removeCtxMenu, { once: true }), 10);
+}
+function removeCtxMenu() { if (ctxMenu) { ctxMenu.remove(); ctxMenu = null; } }
+
+// SEARCH
+let searchTimeout = null, lastSearchResults = [];
+function doSearch(q) {
+  clearTimeout(searchTimeout); if (!q.trim()) { hideSearchResults(); return; }
+  searchTimeout = setTimeout(async () => {
+    const resp = await fetch(`/api/sheet/${SHEET_ID}/search/?q=${encodeURIComponent(q)}`);
+    const data = await resp.json(); lastSearchResults = data.results || []; renderSearchResults(lastSearchResults);
+  }, 250);
+}
+function renderSearchResults(results) {
+  const box = document.getElementById('searchResults');
+  box.innerHTML = !results.length ? '<div style="padding:12px 16px;color:var(--text3);font-size:13px">Ничего не найдено</div>' :
+    results.slice(0, 20).map(r => `<div onclick="jumpToCell(${r.row},${r.col})" style="padding:9px 14px;cursor:pointer;border-bottom:1px solid var(--border);transition:background .1s" onmouseover="this.style.background='rgba(79,156,249,.08)'" onmouseout="this.style.background=''">
+      <span style="font-family:'IBM Plex Mono',monospace;font-size:12px;color:var(--accent);margin-right:10px">${r.ref}</span>
+      <span style="font-size:13px">${escapeHTML(r.formatted || r.value).substring(0,60)}</span>
+      ${r.formula ? `<span style="font-size:11px;color:var(--text3);margin-left:6px">${escapeHTML(r.formula).substring(0,40)}</span>` : ''}</div>`).join('');
+  box.style.display = 'block';
+}
+function showSearchResults() { if (lastSearchResults.length) renderSearchResults(lastSearchResults); }
+function hideSearchResults() { document.getElementById('searchResults').style.display = 'none'; }
+function jumpToCell(row, col) {
+  hideSearchResults(); document.getElementById('searchInput').value = ''; lastSearchResults = [];
+  const td = document.querySelector(`td[data-row="${row}"][data-col="${col}"]`);
+  if (td) { td.scrollIntoView({ behavior: 'smooth', block: 'center' }); selectCell(td); }
+}
+
+// UTILS
+function openModal(id) { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+function exportExcel() { window.location.href = `/api/sheet/${SHEET_ID}/export/`; notify('Экспорт начат...', 'info'); }
+function colLetter(i) { let r='',n=i; while(true){r=String.fromCharCode(65+n%26)+r;n=Math.floor(n/26)-1;if(n<0)break;} return r; }
+function formatNumber(v, fmt) { if(fmt==='currency')return v.toLocaleString('ru-KZ')+' ₸'; if(fmt==='percent')return v.toFixed(1)+'%'; return v.toLocaleString('ru-KZ'); }
+function escapeHTML(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function escapeAttr(s) { return String(s).replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+function getCookie(name) { const ci = document.querySelector('#csrfForm [name=csrfmiddlewaretoken]'); if(ci) return ci.value; const v=document.cookie.match('(^|;) ?'+name+'=([^;]*)(;|$)'); return v?v[2]:''; }
+function notify(msg, type='info') { const c=document.getElementById('notifContainer'),d=document.createElement('div'); d.className=`notif ${type}`; d.textContent=msg; c.appendChild(d); setTimeout(()=>d.remove(),3500); }
+function setStatus(state) { const dot=document.getElementById('statusDot'),txt=document.getElementById('statusText'); dot.className='status-dot'; if(state==='saving'){dot.classList.add('saving');txt.textContent='Сохранение...';}else if(state==='error'){dot.classList.add('error');txt.textContent='Ошибка';}else txt.textContent='Готов'; }
+function showLoading(show) { document.getElementById('loadingOverlay').style.display = show ? 'flex' : 'none'; }
+function updateStats() { if(!sheetData)return; const c=sheetData.cells; document.getElementById('statCells').textContent=c.length; document.getElementById('statFormulas').textContent=c.filter(x=>x.type==='formula').length; document.getElementById('statInputs').textContent=c.filter(x=>x.editable).length; }
+document.querySelectorAll('.modal-overlay').forEach(el => el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); }));
+</script>
+</body>
+</html>

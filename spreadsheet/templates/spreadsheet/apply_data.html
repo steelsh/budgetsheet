@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Новый год — BudgetSheet</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#0f1117;--bg2:#161b27;--bg3:#1e2537;
+    --border:#2a3550;--border2:#3a4a6a;
+    --accent:#4f9cf9;--accent2:#7bc4f7;
+    --green:#4ade80;--red:#f87171;--yellow:#fbbf24;
+    --text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;
+    --shadow:0 4px 24px rgba(0,0,0,0.4);
+    --mono:'IBM Plex Mono',monospace;--sans:'IBM Plex Sans',sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;}
+
+  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:56px;gap:16px;}
+  .logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;}
+  .divider{width:1px;height:24px;background:var(--border);}
+  a.back{font-size:13px;color:var(--text2);text-decoration:none;transition:color .15s;}
+  a.back:hover{color:var(--accent);}
+
+  .page{max-width:660px;margin:48px auto;padding:0 24px;}
+  h1{font-size:22px;font-weight:600;margin-bottom:8px;}
+  .sub{color:var(--text2);font-size:14px;margin-bottom:40px;line-height:1.6;}
+
+  /* Steps */
+  .steps{display:flex;gap:0;margin-bottom:40px;position:relative;}
+  .steps::before{content:'';position:absolute;top:20px;left:20px;right:20px;height:2px;background:var(--border);z-index:0;}
+  .step{flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;position:relative;z-index:1;}
+  .step-num{width:40px;height:40px;border-radius:50%;border:2px solid var(--border2);background:var(--bg2);display:flex;align-items:center;justify-content:center;font-family:var(--mono);font-size:14px;font-weight:600;color:var(--text3);transition:all .2s;}
+  .step-num.active{border-color:var(--accent);color:var(--accent);background:rgba(79,156,249,.1);}
+  .step-num.done{border-color:var(--green);color:var(--green);background:rgba(74,222,128,.1);}
+  .step-label{font-size:11px;color:var(--text3);text-align:center;}
+
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;margin-bottom:20px;}
+  .card-title{font-size:13px;font-weight:600;color:var(--text2);letter-spacing:.04em;text-transform:uppercase;margin-bottom:16px;display:flex;align-items:center;gap:8px;}
+  .card-title span{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;}
+
+  /* Template selector */
+  .template-list{display:flex;flex-direction:column;gap:8px;}
+  .template-item{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--border);border-radius:8px;cursor:pointer;transition:all .15s;background:var(--bg3);}
+  .template-item:hover{border-color:var(--accent);background:rgba(79,156,249,.05);}
+  .template-item.selected{border-color:var(--accent);background:rgba(79,156,249,.1);}
+  .template-item input[type=radio]{accent-color:var(--accent);}
+  .template-info{flex:1;}
+  .template-name{font-size:14px;font-weight:500;}
+  .template-meta{font-size:11px;color:var(--text3);font-family:var(--mono);margin-top:2px;}
+
+  /* Drop zone */
+  .drop-zone{border:2px dashed var(--border2);border-radius:10px;padding:28px;text-align:center;cursor:pointer;transition:all .15s;background:var(--bg3);position:relative;}
+  .drop-zone input[type=file]{position:absolute;inset:0;opacity:0;cursor:pointer;}
+  .drop-zone:hover,.drop-zone.over{border-color:var(--accent);background:rgba(79,156,249,.05);}
+  .drop-zone.filled{border-style:solid;border-color:var(--green);}
+  .dz-icon{font-size:32px;margin-bottom:8px;}
+  .dz-title{font-size:14px;font-weight:500;margin-bottom:4px;}
+  .dz-sub{font-size:12px;color:var(--text2);}
+  .dz-file{font-size:13px;color:var(--green);font-family:var(--mono);margin-top:8px;}
+
+  /* Field */
+  .field{margin-bottom:16px;}
+  .field label{font-size:12px;color:var(--text2);display:block;margin-bottom:6px;}
+  .field input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:6px;padding:8px 12px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;transition:border-color .15s;}
+  .field input:focus{border-color:var(--accent);}
+
+  /* Buttons */
+  .btn{font-family:var(--sans);font-size:13px;font-weight:500;padding:9px 20px;border-radius:8px;border:1px solid var(--border2);background:var(--bg3);color:var(--text);cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;gap:8px;}
+  .btn:hover{border-color:var(--accent);color:var(--accent);}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;font-size:15px;padding:12px 32px;}
+  .btn-primary:hover{background:var(--accent2);color:var(--bg);}
+  .btn-primary:disabled{opacity:.5;cursor:not-allowed;}
+
+  /* Result */
+  .result{display:none;background:rgba(74,222,128,.06);border:1px solid var(--green);border-radius:12px;padding:24px;margin-top:24px;text-align:center;}
+  .result.show{display:block;}
+  .result-icon{font-size:40px;margin-bottom:12px;}
+  .result-title{font-size:18px;font-weight:600;color:var(--green);margin-bottom:6px;}
+  .result-sub{font-size:13px;color:var(--text2);margin-bottom:20px;line-height:1.6;}
+  .stats{display:flex;justify-content:center;gap:24px;margin-bottom:20px;}
+  .stat{text-align:center;}
+  .stat-num{font-size:24px;font-weight:600;font-family:var(--mono);}
+  .stat-label{font-size:11px;color:var(--text3);margin-top:2px;}
+
+  .error{display:none;background:rgba(248,113,113,.07);border:1px solid var(--red);border-radius:8px;padding:14px 18px;margin-top:16px;color:var(--red);font-size:13px;}
+  .error.show{display:block;}
+
+  .spinner{display:none;width:16px;height:16px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;}
+  .spinner.show{display:inline-block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="logo">◈ BudgetSheet</span>
+  <div class="divider"></div>
+  <a href="/" class="back">← Вернуться к таблицам</a>
+</div>
+
+<div class="page">
+  <h1>Загрузить данные нового года</h1>
+  <p class="sub">
+    Выберите шаблон с формулами (например, 2024) и загрузите файл с новыми входными данными (2025).<br>
+    Приложение подставит данные в нужные ячейки и автоматически пересчитает все формулы.
+  </p>
+
+  <!-- Steps indicator -->
+  <div class="steps">
+    <div class="step"><div class="step-num active" id="s1">1</div><div class="step-label">Шаблон</div></div>
+    <div class="step"><div class="step-num" id="s2">2</div><div class="step-label">Файл данных</div></div>
+    <div class="step"><div class="step-num" id="s3">3</div><div class="step-label">Готово</div></div>
+  </div>
+
+  <!-- Step 1: Choose template -->
+  <div class="card">
+    <div class="card-title"><span>1</span> Выберите шаблон с формулами</div>
+    <div class="template-list">
+      {% for sheet in sheets %}
+      <label class="template-item" onclick="selectTemplate({{ sheet.id }}, this)">
+        <input type="radio" name="template" value="{{ sheet.id }}">
+        <div class="template-info">
+          <div class="template-name">{{ sheet.name }}</div>
+          <div class="template-meta">ID {{ sheet.id }} · обновлён {{ sheet.updated_at|date:"d.m.Y" }}</div>
+        </div>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text3)"><polyline points="9 18 15 12 9 6"/></svg>
+      </label>
+      {% empty %}
+      <p style="color:var(--text3);font-size:13px;padding:8px">
+        Нет сохранённых листов. <a href="/api/import/" style="color:var(--accent)">Сначала импортируйте файл 2024</a>.
+      </p>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Step 2: Upload data file -->
+  <div class="card">
+    <div class="card-title"><span>2</span> Загрузите файл с новыми данными</div>
+
+    <div class="drop-zone" id="dropZone">
+      <input type="file" id="dataFile" accept=".xlsx">
+      <div class="dz-icon">📥</div>
+      <div class="dz-title">Файл 2025 (.xlsx)</div>
+      <div class="dz-sub">Нажмите или перетащите файл</div>
+      <div class="dz-file" id="fileName"></div>
+    </div>
+
+    <div style="display:flex;gap:16px;margin-top:14px">
+      <div class="field" style="flex:1">
+        <label>Индекс листа в файле (0 = первый)</label>
+        <input type="number" id="dataSheetIndex" value="0" min="0">
+      </div>
+      <div class="field" style="flex:2">
+        <label>Название нового листа (оставьте пустым — подберём автоматически)</label>
+        <input type="text" id="newSheetName" placeholder="Например: Бюджет 2025">
+      </div>
+    </div>
+  </div>
+
+  <!-- Submit -->
+  <button class="btn btn-primary" id="applyBtn" onclick="doApply()">
+    <span class="spinner" id="spinner"></span>
+    Создать новый лист
+  </button>
+
+  <div class="error" id="errorBox"></div>
+
+  <!-- Result -->
+  <div class="result" id="resultBox">
+    <div class="result-icon">✅</div>
+    <div class="result-title">Лист создан!</div>
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="statReplaced" style="color:var(--green)">—</div><div class="stat-label">Подставлено новых значений</div></div>
+      <div class="stat"><div class="stat-num" id="statKept" style="color:var(--accent)">—</div><div class="stat-label">Сохранено из шаблона</div></div>
+      <div class="stat"><div class="stat-num" id="statSkipped" style="color:var(--text3)">—</div><div class="stat-label">Пропущено (нет в шаблоне)</div></div>
+    </div>
+    <a class="btn btn-primary" id="resultLink" href="#">Открыть таблицу →</a>
+  </div>
+</div>
+
+<form id="csrfForm" style="display:none">{% csrf_token %}</form>
+
+<script>
+let selectedTemplateId = null;
+
+function selectTemplate(id, el) {
+  selectedTemplateId = id;
+  document.querySelectorAll('.template-item').forEach(t => t.classList.remove('selected'));
+  el.classList.add('selected');
+  document.getElementById('s1').classList.remove('active');
+  document.getElementById('s1').classList.add('done');
+  document.getElementById('s1').textContent = '✓';
+  document.getElementById('s2').classList.add('active');
+}
+
+document.getElementById('dataFile').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  document.getElementById('fileName').textContent = '✓ ' + f.name;
+  document.getElementById('dropZone').classList.add('filled');
+  if (!document.getElementById('newSheetName').value) {
+    const name = f.name.replace('.xlsx','').replace('.xls','');
+    document.getElementById('newSheetName').placeholder = name;
+  }
+  document.getElementById('s2').classList.remove('active');
+  document.getElementById('s2').classList.add('done');
+  document.getElementById('s2').textContent = '✓';
+});
+
+// Drag and drop
+const dz = document.getElementById('dropZone');
+dz.addEventListener('dragover', e => { e.preventDefault(); dz.classList.add('over'); });
+dz.addEventListener('dragleave', () => dz.classList.remove('over'));
+dz.addEventListener('drop', e => {
+  e.preventDefault(); dz.classList.remove('over');
+  document.getElementById('dataFile').files = e.dataTransfer.files;
+  document.getElementById('dataFile').dispatchEvent(new Event('change'));
+});
+
+async function doApply() {
+  if (!selectedTemplateId) { showError('Выберите шаблон (шаг 1)'); return; }
+  const fileInput = document.getElementById('dataFile');
+  if (!fileInput.files[0]) { showError('Загрузите файл с данными (шаг 2)'); return; }
+
+  const btn = document.getElementById('applyBtn');
+  const spinner = document.getElementById('spinner');
+  btn.disabled = true;
+  spinner.classList.add('show');
+  hideError();
+
+  const fd = new FormData();
+  fd.append('template_id', selectedTemplateId);
+  fd.append('data_file', fileInput.files[0]);
+  fd.append('new_sheet_name', document.getElementById('newSheetName').value);
+  fd.append('data_sheet_index', document.getElementById('dataSheetIndex').value);
+
+  try {
+    const resp = await fetch('/api/apply-data/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value },
+      body: fd,
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      document.getElementById('statReplaced').textContent = data.replaced;
+      document.getElementById('statKept').textContent = data.kept;
+      document.getElementById('statSkipped').textContent = data.skipped;
+      document.getElementById('resultLink').href = '/sheet/' + data.sheet_id + '/';
+      document.getElementById('resultBox').classList.add('show');
+      document.getElementById('s3').classList.add('done');
+      document.getElementById('s3').textContent = '✓';
+    } else {
+      showError(data.error || 'Произошла ошибка');
+    }
+  } catch(e) {
+    showError('Ошибка соединения: ' + e.message);
+  }
+
+  btn.disabled = false;
+  spinner.classList.remove('show');
+}
+
+function showError(msg) {
+  const b = document.getElementById('errorBox');
+  b.textContent = '⚠️ ' + msg;
+  b.classList.add('show');
+}
+function hideError() {
+  document.getElementById('errorBox').classList.remove('show');
+}
+</script>
+<script>
+function initTheme(){const t=localStorage.getItem('bs-theme')||'dark';document.documentElement.setAttribute('data-theme',t);const b=document.getElementById('themeBtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';}
+function toggleTheme(){const c=document.documentElement.getAttribute('data-theme')||'dark';const n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('bs-theme',n);const b=document.getElementById('themeBtn');if(b)b.textContent=n==='dark'?'☀️':'🌙';}
+initTheme();
+</script>
+</body>
+</html>

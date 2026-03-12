@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Регистрация — BudgetSheet</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root[data-theme="dark"] { --bg:#0f1117;--bg2:#161b27;--bg3:#1e2537;--border:#2a3550;--border2:#3a4a6a;--accent:#4f9cf9;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--red:#f87171;--shadow:0 8px 32px rgba(0,0,0,0.5); }
+  :root[data-theme="light"] { --bg:#f0f4fa;--bg2:#ffffff;--bg3:#f5f7fb;--border:#dde3ef;--border2:#c2cde0;--accent:#2563eb;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--red:#dc2626;--shadow:0 8px 32px rgba(0,0,0,0.1); }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:'IBM Plex Sans',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:center;justify-content:center;transition:background 0.2s;}
+  .card{background:var(--bg2);border:1px solid var(--border);border-radius:16px;padding:40px;width:100%;max-width:400px;box-shadow:var(--shadow);}
+  .logo{font-family:'IBM Plex Mono',monospace;font-size:14px;font-weight:600;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;text-align:center;margin-bottom:32px;}
+  h1{font-size:20px;font-weight:600;margin-bottom:24px;text-align:center;}
+  .field{margin-bottom:16px;}
+  .field label{font-size:11px;font-weight:600;color:var(--text3);display:block;margin-bottom:5px;letter-spacing:.05em;text-transform:uppercase;}
+  .field input{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:10px 14px;color:var(--text);font-size:14px;font-family:inherit;outline:none;transition:border-color .15s;}
+  .field input:focus{border-color:var(--accent);}
+  .btn{width:100%;background:var(--accent);border:none;border-radius:8px;padding:12px;color:#fff;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;transition:opacity .15s;margin-top:8px;}
+  .btn:hover{opacity:0.9;}
+  .error{background:rgba(248,113,113,.1);border:1px solid var(--red);border-radius:8px;padding:10px 14px;font-size:13px;color:var(--red);margin-bottom:16px;}
+  .link{text-align:center;margin-top:20px;font-size:13px;color:var(--text3);}
+  .link a{color:var(--accent);text-decoration:none;font-weight:500;}
+  .theme-btn{position:fixed;top:16px;right:16px;background:var(--bg2);border:1px solid var(--border2);border-radius:20px;padding:6px 12px;font-size:12px;cursor:pointer;color:var(--text2);font-family:'IBM Plex Sans',sans-serif;display:flex;align-items:center;gap:5px;}
+</style>
+</head>
+<body>
+<button class="theme-btn" onclick="toggleTheme()"><span id="ti">☀️</span><span id="tl">Светлая</span></button>
+<div class="card">
+  <div class="logo">◈ BudgetSheet</div>
+  <h1>Регистрация</h1>
+  {% if error %}<div class="error">{{ error }}</div>{% endif %}
+  <form method="post">
+    {% csrf_token %}
+    <div class="field"><label>Логин</label><input type="text" name="username" autofocus autocomplete="username"></div>
+    <div class="field"><label>Пароль</label><input type="password" name="password" autocomplete="new-password"></div>
+    <div class="field"><label>Повторите пароль</label><input type="password" name="password2" autocomplete="new-password"></div>
+    <button class="btn" type="submit">Создать аккаунт</button>
+  </form>
+  <div class="link">Уже есть аккаунт? <a href="/login/">Войти</a></div>
+</div>
+<script>
+function initTheme(){const s=localStorage.getItem('bs-theme')||'dark';applyTheme(s);}
+function toggleTheme(){const c=document.documentElement.getAttribute('data-theme');applyTheme(c==='dark'?'light':'dark');}
+function applyTheme(t){document.documentElement.setAttribute('data-theme',t);localStorage.setItem('bs-theme',t);document.getElementById('ti').textContent=t==='dark'?'☀️':'🌙';document.getElementById('tl').textContent=t==='dark'?'Светлая':'Тёмная';}
+initTheme();
+</script>
+</body>
+</html>

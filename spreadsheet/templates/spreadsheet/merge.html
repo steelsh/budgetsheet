@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Объединение файлов — BudgetSheet</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  [data-theme="dark"] {
+    --bg: #0f1117; --bg2: #161b27; --bg3: #1e2537;
+    --border: #2a3550; --border2: #3a4a6a;
+    --accent: #4f9cf9; --accent2: #7bc4f7;
+    --green: #4ade80; --red: #f87171; --yellow: #fbbf24;
+    --text: #e2e8f0; --text2: #94a3b8; --text3: #64748b;
+    --shadow: 0 4px 24px rgba(0,0,0,0.4);
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
+  [data-theme="light"] {
+    --bg: #f5f7fa; --bg2: #ffffff; --bg3: #eef1f6; --border: #d1d9e6; --border2: #b8c4d8;
+    --accent: #2563eb; --accent2: #3b82f6; --green: #16a34a; --red: #dc2626; --yellow: #d97706;
+    --text: #1e293b; --text2: #475569; --text3: #94a3b8; --shadow: 0 4px 24px rgba(0,0,0,0.12);
+    --mono: 'IBM Plex Mono', monospace; --sans: 'IBM Plex Sans', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  .topbar {
+    background: var(--bg2); border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; padding: 0 24px; height: 56px; gap: 16px;
+  }
+  .topbar-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase; }
+  .topbar-divider { width: 1px; height: 24px; background: var(--border); }
+  .topbar-link { font-size: 13px; color: var(--text2); text-decoration: none; transition: color 0.15s; }
+  .topbar-link:hover { color: var(--accent); }
+
+  .page { max-width: 720px; margin: 48px auto; padding: 0 24px; }
+
+  h1 { font-size: 22px; font-weight: 600; margin-bottom: 8px; }
+  .subtitle { color: var(--text2); font-size: 14px; margin-bottom: 40px; line-height: 1.6; }
+
+  .schema {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 24px; margin-bottom: 40px;
+    font-size: 13px;
+  }
+  .schema-box {
+    flex: 1; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 8px; padding: 14px 16px; text-align: center;
+  }
+  .schema-box .label { font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text3); margin-bottom: 6px; }
+  .schema-box .title { font-weight: 600; font-size: 14px; }
+  .schema-box .desc { font-size: 11px; color: var(--text2); margin-top: 4px; line-height: 1.4; }
+  .schema-box.base .title { color: var(--accent); }
+  .schema-box.data .title { color: var(--green); }
+  .schema-box.result .title { color: var(--yellow); }
+  .arrow { font-size: 20px; color: var(--text3); flex-shrink: 0; }
+
+  .section { margin-bottom: 32px; }
+  .section-title {
+    font-size: 11px; font-weight: 600; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text3); margin-bottom: 14px;
+  }
+
+  .drop-zone {
+    border: 2px dashed var(--border2); border-radius: 10px;
+    padding: 28px; text-align: center; cursor: pointer;
+    transition: all 0.15s; position: relative;
+    background: var(--bg2);
+  }
+  .drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(79,156,249,0.04); }
+  .drop-zone.filled { border-style: solid; border-color: var(--green); }
+  .drop-zone input[type=file] { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+  .drop-zone .icon { font-size: 28px; margin-bottom: 8px; }
+  .drop-zone .dz-title { font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+  .drop-zone .dz-sub { font-size: 12px; color: var(--text2); }
+  .drop-zone .dz-file { font-size: 13px; color: var(--green); font-family: var(--mono); margin-top: 6px; }
+
+  .two-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  .field-group { margin-bottom: 16px; }
+  .field-label { font-size: 12px; color: var(--text2); margin-bottom: 6px; display: block; }
+  .field-input {
+    width: 100%; background: var(--bg3); border: 1px solid var(--border2);
+    border-radius: 6px; padding: 8px 12px; color: var(--text);
+    font-size: 13px; font-family: var(--sans); outline: none;
+    transition: border-color 0.15s;
+  }
+  .field-input:focus { border-color: var(--accent); }
+
+  .rules {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px; margin-bottom: 32px;
+  }
+  .rules-title { font-size: 12px; font-weight: 600; color: var(--text2); margin-bottom: 12px; }
+  .rule { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 10px; font-size: 13px; color: var(--text2); }
+  .rule-badge {
+    flex-shrink: 0; width: 20px; height: 20px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10px; font-weight: 700; font-family: var(--mono);
+  }
+  .badge-formula { background: rgba(79,156,249,0.2); color: var(--accent); }
+  .badge-data { background: rgba(74,222,128,0.2); color: var(--green); }
+  .badge-label { background: rgba(148,163,184,0.15); color: var(--text2); }
+
+  .btn {
+    font-family: var(--sans); font-size: 14px; font-weight: 500;
+    padding: 10px 24px; border-radius: 8px; border: 1px solid var(--border2);
+    background: var(--bg3); color: var(--text); cursor: pointer;
+    transition: all 0.15s; display: inline-flex; align-items: center; gap: 8px;
+  }
+  .btn:hover { background: var(--border); border-color: var(--accent); color: var(--accent); }
+  .btn-primary { background: var(--accent); border-color: var(--accent); color: #fff; font-size: 15px; padding: 12px 32px; }
+  .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); color: var(--bg); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .result-box {
+    display: none; background: var(--bg2); border: 1px solid var(--green);
+    border-radius: 10px; padding: 20px 24px; margin-top: 24px;
+    text-align: center;
+  }
+  .result-box.show { display: block; }
+  .result-box .result-icon { font-size: 32px; margin-bottom: 8px; }
+  .result-box .result-msg { font-size: 15px; font-weight: 500; color: var(--green); margin-bottom: 4px; }
+  .result-box .result-sub { font-size: 13px; color: var(--text2); margin-bottom: 16px; }
+
+  .error-box {
+    display: none; background: rgba(248,113,113,0.08); border: 1px solid var(--red);
+    border-radius: 10px; padding: 16px 20px; margin-top: 16px; color: var(--red); font-size: 13px;
+  }
+  .error-box.show { display: block; }
+
+  .spinner { display: none; }
+  .spinner.show {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.3); border-top-color: #fff;
+    border-radius: 50%; animation: spin 0.6s linear infinite; vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="topbar-logo">◈ BudgetSheet</span>
+  <div class="topbar-divider"></div>
+  <a href="/" class="topbar-link">← Вернуться к таблицам</a>
+  <div style="margin-left:auto"><button id="themeBtn" onclick="toggleTheme()" style="font-size:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:5px 9px;cursor:pointer;line-height:1;" title="Сменить тему">☀️</button></div>
+</div>
+
+<div class="page">
+  <h1>Объединение файлов</h1>
+  <p class="subtitle">
+    Загрузите файл с формулами (прошлый год) и файл с новыми данными (текущий год).<br>
+    Приложение автоматически объединит их: формулы из старого файла, входные данные из нового.
+  </p>
+
+  <!-- Schema -->
+  <div class="schema">
+    <div class="schema-box base">
+      <div class="label">Файл 1</div>
+      <div class="title">База (2024)</div>
+      <div class="desc">Формулы, структура,<br>заголовки, оформление</div>
+    </div>
+    <div class="arrow">+</div>
+    <div class="schema-box data">
+      <div class="label">Файл 2</div>
+      <div class="title">Данные (2025)</div>
+      <div class="desc">Новые входные<br>значения</div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="schema-box result">
+      <div class="label">Результат</div>
+      <div class="title">Новый лист</div>
+      <div class="desc">Формулы + новые данные,<br>всё пересчитано</div>
+    </div>
+  </div>
+
+  <!-- Rules -->
+  <div class="rules">
+    <div class="rules-title">Правила объединения</div>
+    <div class="rule">
+      <div class="rule-badge badge-formula">=</div>
+      <div>Если в файле 2024 ячейка содержит <b>формулу</b> — она сохраняется. Значение из файла 2025 игнорируется.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-badge badge-data">↓</div>
+      <div>Если в файле 2024 ячейка содержит <b>число</b> и в файле 2025 есть значение на том же месте — берётся значение из <b>2025</b>.</div>
+    </div>
+    <div class="rule">
+      <div class="rule-badge badge-label">A</div>
+      <div>Текстовые ячейки (заголовки, метки) берутся из файла 2024 без изменений.</div>
+    </div>
+  </div>
+
+  <!-- File uploads -->
+  <div class="two-cols" style="margin-bottom:24px">
+    <div class="section">
+      <div class="section-title">📋 Файл с формулами (база)</div>
+      <div class="drop-zone" id="baseZone" onclick="document.getElementById('baseInput').click()">
+        <input type="file" id="baseInput" accept=".xlsx">
+        <div class="icon">📊</div>
+        <div class="dz-title">Файл 2024</div>
+        <div class="dz-sub">С формулами и расчётами</div>
+        <div class="dz-file" id="baseFileName"></div>
+      </div>
+      <div class="field-group" style="margin-top:10px">
+        <label class="field-label">Индекс листа (0 = первый)</label>
+        <input type="number" class="field-input" id="baseSheetIndex" value="0" min="0">
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">📥 Файл с данными (новый год)</div>
+      <div class="drop-zone" id="dataZone" onclick="document.getElementById('dataInput').click()">
+        <input type="file" id="dataInput" accept=".xlsx">
+        <div class="icon">📈</div>
+        <div class="dz-title">Файл 2025</div>
+        <div class="dz-sub">С новыми входными данными</div>
+        <div class="dz-file" id="dataFileName"></div>
+      </div>
+      <div class="field-group" style="margin-top:10px">
+        <label class="field-label">Индекс листа (0 = первый)</label>
+        <input type="number" class="field-input" id="dataSheetIndex" value="0" min="0">
+      </div>
+    </div>
+  </div>
+
+  <!-- Sheet name -->
+  <div class="field-group">
+    <label class="field-label">Название нового листа в приложении</label>
+    <input type="text" class="field-input" id="sheetName" placeholder="Например: Бюджет 2025">
+  </div>
+
+  <!-- Submit -->
+  <div style="margin-top:24px">
+    <button class="btn btn-primary" id="mergeBtn" onclick="doMerge()">
+      <span class="spinner" id="spinner"></span>
+      Объединить и открыть
+    </button>
+  </div>
+
+  <!-- Result -->
+  <div class="result-box" id="resultBox">
+    <div class="result-icon">✅</div>
+    <div class="result-msg" id="resultMsg"></div>
+    <div class="result-sub" id="resultSub"></div>
+    <a class="btn btn-primary" id="resultLink" href="#">Открыть таблицу →</a>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+</div>
+
+<form id="csrfForm" style="display:none">{% csrf_token %}</form>
+
+<script>
+function getCsrf() {
+  return document.querySelector('#csrfForm [name=csrfmiddlewaretoken]').value;
+}
+
+// File input handlers
+document.getElementById('baseInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) {
+    document.getElementById('baseFileName').textContent = '✓ ' + f.name;
+    document.getElementById('baseZone').classList.add('filled');
+    if (!document.getElementById('sheetName').value) {
+      document.getElementById('sheetName').placeholder = f.name.replace('.xlsx','') + ' (merged)';
+    }
+  }
+});
+
+document.getElementById('dataInput').addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) {
+    document.getElementById('dataFileName').textContent = '✓ ' + f.name;
+    document.getElementById('dataZone').classList.add('filled');
+    if (!document.getElementById('sheetName').value) {
+      document.getElementById('sheetName').value = f.name.replace('.xlsx','') + ' (объединённый)';
+    }
+  }
+});
+
+// Drag and drop
+['baseZone', 'dataZone'].forEach(id => {
+  const zone = document.getElementById(id);
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault();
+    zone.classList.remove('dragover');
+    const inputId = id === 'baseZone' ? 'baseInput' : 'dataInput';
+    const input = document.getElementById(inputId);
+    input.files = e.dataTransfer.files;
+    input.dispatchEvent(new Event('change'));
+  });
+});
+
+async function doMerge() {
+  const baseFile = document.getElementById('baseInput').files[0];
+  const dataFile = document.getElementById('dataInput').files[0];
+
+  if (!baseFile) { showError('Выберите файл с формулами (база)'); return; }
+  if (!dataFile) { showError('Выберите файл с данными (новый год)'); return; }
+
+  const btn = document.getElementById('mergeBtn');
+  const spinner = document.getElementById('spinner');
+  btn.disabled = true;
+  spinner.classList.add('show');
+  hideError();
+
+  const formData = new FormData();
+  formData.append('base_file', baseFile);
+  formData.append('data_file', dataFile);
+  formData.append('sheet_name', document.getElementById('sheetName').value || 'Merged');
+  formData.append('base_sheet_index', document.getElementById('baseSheetIndex').value);
+  formData.append('data_sheet_index', document.getElementById('dataSheetIndex').value);
+
+  try {
+    const resp = await fetch('/api/merge/', {
+      method: 'POST',
+      headers: { 'X-CSRFToken': getCsrf() },
+      body: formData,
+    });
+    const data = await resp.json();
+
+    if (data.success) {
+      document.getElementById('resultMsg').textContent = 'Файлы успешно объединены!';
+      document.getElementById('resultSub').textContent = data.message;
+      document.getElementById('resultLink').href = `/sheet/${data.sheet_id}/`;
+      document.getElementById('resultBox').classList.add('show');
+    } else {
+      showError(data.error || 'Произошла ошибка');
+    }
+  } catch(e) {
+    showError('Ошибка соединения: ' + e.message);
+  }
+
+  btn.disabled = false;
+  spinner.classList.remove('show');
+}
+
+function showError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = '⚠️ ' + msg;
+  box.classList.add('show');
+}
+function hideError() {
+  document.getElementById('errorBox').classList.remove('show');
+}
+</script>
+<script>
+function initTheme(){const t=localStorage.getItem('bs-theme')||'dark';document.documentElement.setAttribute('data-theme',t);const b=document.getElementById('themeBtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';}
+function toggleTheme(){const c=document.documentElement.getAttribute('data-theme')||'dark';const n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('bs-theme',n);const b=document.getElementById('themeBtn');if(b)b.textContent=n==='dark'?'☀️':'🌙';}
+initTheme();
+</script>
+</body>
+</html>

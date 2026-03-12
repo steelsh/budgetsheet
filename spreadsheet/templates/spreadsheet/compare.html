@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="ru" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<title>Сравнение листов — BudgetSheet</title>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  [data-theme="dark"]{--bg:#0f1117;--bg2:#161b27;--bg3:#1e2537;--border:#2a3550;--border2:#3a4a6a;--accent:#4f9cf9;--green:#4ade80;--red:#f87171;--yellow:#fbbf24;--text:#e2e8f0;--text2:#94a3b8;--text3:#64748b;--mono:"IBM Plex Mono",monospace;--sans:"IBM Plex Sans",sans-serif;}
+  [data-theme="light"]{--bg:#f5f7fa;--bg2:#ffffff;--bg3:#eef1f6;--border:#d1d9e6;--border2:#b8c4d8;--accent:#2563eb;--green:#16a34a;--red:#dc2626;--yellow:#d97706;--text:#1e293b;--text2:#475569;--text3:#94a3b8;--mono:"IBM Plex Mono",monospace;--sans:"IBM Plex Sans",sans-serif;}
+  *{box-sizing:border-box;margin:0;padding:0;}
+  body{font-family:var(--sans);background:var(--bg);color:var(--text);min-height:100vh;}
+  .topbar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 24px;height:56px;gap:16px;}
+  .logo{font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;}
+  .divider{width:1px;height:24px;background:var(--border);}
+  a.back{font-size:13px;color:var(--text2);text-decoration:none;}a.back:hover{color:var(--accent);}
+  .page{max-width:960px;margin:40px auto;padding:0 24px;}
+  h1{font-size:22px;font-weight:600;margin-bottom:8px;}
+  .sub{color:var(--text2);font-size:14px;margin-bottom:32px;}
+  .selectors{display:flex;gap:16px;margin-bottom:24px;align-items:flex-end;}
+  .field{flex:1;}
+  .field label{font-size:12px;color:var(--text2);display:block;margin-bottom:6px;}
+  .field select{width:100%;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:9px 12px;color:var(--text);font-size:13px;font-family:var(--sans);outline:none;}
+  .btn{font-family:var(--sans);font-size:14px;font-weight:500;padding:10px 24px;border-radius:8px;border:none;background:var(--accent);color:#fff;cursor:pointer;transition:background .15s;white-space:nowrap;}
+  .btn:hover{background:#7bc4f7;}
+  .summary{display:flex;gap:16px;margin-bottom:24px;}
+  .sum-box{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:16px 20px;flex:1;text-align:center;}
+  .sum-num{font-size:28px;font-weight:600;font-family:var(--mono);}
+  .sum-label{font-size:11px;color:var(--text3);margin-top:4px;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{background:var(--bg2);padding:10px 14px;text-align:left;font-weight:500;color:var(--text2);border-bottom:1px solid var(--border);font-size:11px;letter-spacing:.04em;text-transform:uppercase;}
+  td{padding:9px 14px;border-bottom:1px solid var(--border);vertical-align:middle;}
+  tr:hover td{background:rgba(79,156,249,.03);}
+  .tag{display:inline-block;padding:2px 8px;border-radius:4px;font-size:11px;font-weight:600;font-family:var(--mono);}
+  .tag-changed{background:rgba(251,191,36,.15);color:var(--yellow);}
+  .tag-only-a{background:rgba(79,156,249,.15);color:var(--accent);}
+  .tag-only-b{background:rgba(74,222,128,.15);color:var(--green);}
+  .val-a{color:var(--red);}
+  .val-b{color:var(--green);}
+  .arrow{color:var(--text3);padding:0 6px;}
+  .empty{text-align:center;padding:48px;color:var(--text3);}
+  .spinner{display:none;width:20px;height:20px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .6s linear infinite;margin:0 auto;}
+  .spinner.show{display:block;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+</style>
+</head>
+<body>
+<div class="topbar">
+  <span class="logo">◈ BudgetSheet</span>
+  <div class="divider"></div>
+  <a href="/" class="back">← Назад</a>
+  <div style="margin-left:auto">
+    <button onclick="toggleTheme()" id="themeBtn" style="font-size:16px;background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:5px 9px;cursor:pointer;transition:all .15s;line-height:1;" title="Сменить тему">☀️</button>
+  </div>
+</div>
+<div class="page">
+  <h1>Сравнение листов</h1>
+  <p class="sub">Выберите два листа чтобы увидеть разницу в значениях ячеек.</p>
+  <div class="selectors">
+    <div class="field"><label>Лист A (базовый)</label>
+      <select id="selA">{% for s in sheets %}<option value="{{ s.id }}">{{ s.name }}</option>{% endfor %}</select>
+    </div>
+    <div class="field"><label>Лист B (сравнение)</label>
+      <select id="selB">{% for s in sheets %}<option value="{{ s.id }}" {% if forloop.counter == 2 %}selected{% endif %}>{{ s.name }}</option>{% endfor %}</select>
+    </div>
+    <button class="btn" onclick="doCompare()">Сравнить</button>
+  </div>
+  <div class="summary" id="summary" style="display:none">
+    <div class="sum-box"><div class="sum-num" id="sumChanged" style="color:var(--yellow)">0</div><div class="sum-label">Изменено</div></div>
+    <div class="sum-box"><div class="sum-num" id="sumOnlyA" style="color:var(--accent)">0</div><div class="sum-label">Только в A</div></div>
+    <div class="sum-box"><div class="sum-num" id="sumOnlyB" style="color:var(--green)">0</div><div class="sum-label">Только в B</div></div>
+    <div class="sum-box"><div class="sum-num" id="sumTotal">0</div><div class="sum-label">Всего отличий</div></div>
+  </div>
+  <div class="spinner" id="spinner"></div>
+  <div id="result"></div>
+</div>
+<script>
+function initTheme(){const t=localStorage.getItem('bs-theme')||'dark';document.documentElement.setAttribute('data-theme',t);const b=document.getElementById('themeBtn');if(b)b.textContent=t==='dark'?'☀️':'🌙';}
+function toggleTheme(){const c=document.documentElement.getAttribute('data-theme')||'dark';const n=c==='dark'?'light':'dark';document.documentElement.setAttribute('data-theme',n);localStorage.setItem('bs-theme',n);const b=document.getElementById('themeBtn');if(b)b.textContent=n==='dark'?'☀️':'🌙';}
+initTheme();
+async function doCompare() {
+  const a = document.getElementById('selA').value;
+  const b = document.getElementById('selB').value;
+  if (a === b) { alert('Выберите разные листы'); return; }
+  document.getElementById('spinner').classList.add('show');
+  document.getElementById('result').innerHTML = '';
+  document.getElementById('summary').style.display = 'none';
+  const resp = await fetch(`/api/compare/?a=${a}&b=${b}`);
+  const data = await resp.json();
+  document.getElementById('spinner').classList.remove('show');
+  if (data.error) { document.getElementById('result').innerHTML = `<div class="empty">${data.error}</div>`; return; }
+  const diffs = data.diffs;
+  const changed = diffs.filter(d=>d.type==='changed').length;
+  const onlyA = diffs.filter(d=>d.type==='only_a').length;
+  const onlyB = diffs.filter(d=>d.type==='only_b').length;
+  document.getElementById('sumChanged').textContent = changed;
+  document.getElementById('sumOnlyA').textContent = onlyA;
+  document.getElementById('sumOnlyB').textContent = onlyB;
+  document.getElementById('sumTotal').textContent = diffs.length;
+  document.getElementById('summary').style.display = 'flex';
+  if (!diffs.length) { document.getElementById('result').innerHTML = '<div class="empty">✅ Листы идентичны</div>'; return; }
+  let html = `<table><thead><tr><th>Ячейка</th><th>${data.sheet_a} (A)</th><th></th><th>${data.sheet_b} (B)</th><th>Тип</th></tr></thead><tbody>`;
+  for (const d of diffs) {
+    const tag = d.type === 'changed' ? '<span class="tag tag-changed">изменено</span>'
+              : d.type === 'only_a'  ? '<span class="tag tag-only-a">только A</span>'
+                                     : '<span class="tag tag-only-b">только B</span>';
+    html += `<tr><td><b>${d.ref}</b></td><td class="val-a">${d.value_a}</td><td class="arrow">→</td><td class="val-b">${d.value_b}</td><td>${tag}</td></tr>`;
+  }
+  html += '</tbody></table>';
+  document.getElementById('result').innerHTML = html;
+}
+</script>
+</body>
+</html>
