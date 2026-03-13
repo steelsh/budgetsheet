@@ -752,5 +752,143 @@ function showLoading(show) { document.getElementById('loadingOverlay').style.dis
 function updateStats() { if(!sheetData)return; const c=sheetData.cells; document.getElementById('statCells').textContent=c.length; document.getElementById('statFormulas').textContent=c.filter(x=>x.type==='formula').length; document.getElementById('statInputs').textContent=c.filter(x=>x.editable).length; }
 document.querySelectorAll('.modal-overlay').forEach(el => el.addEventListener('click', e => { if(e.target===el) el.classList.remove('open'); }));
 </script>
+
+<!-- 🌸 Easter Egg -->
+<style>
+  .easter-credit {
+    position: fixed;
+    bottom: 6px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 10px;
+    color: var(--text3);
+    opacity: 0.35;
+    cursor: default;
+    user-select: none;
+    font-family: 'IBM Plex Mono', monospace;
+    letter-spacing: 0.04em;
+    transition: opacity 0.3s;
+    z-index: 50;
+    white-space: nowrap;
+  }
+  .easter-credit:hover { opacity: 0.6; }
+
+  #flowerCanvas {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: all;
+    display: none;
+    background: transparent;
+  }
+  .flower-overlay-bg {
+    position: fixed;
+    inset: 0;
+    z-index: 9998;
+    background: rgba(0,0,0,0.0);
+    display: none;
+    transition: background 0.5s;
+  }
+  .flower-overlay-bg.active { display: block; background: rgba(0,0,0,0.55); }
+
+</style>
+
+<span class="easter-credit" id="easterCredit" title="">created by Gulsezim Zhumygaliyeva</span>
+<div class="flower-overlay-bg" id="flowerBg"></div>
+<canvas id="flowerCanvas"></canvas>
+
+<script>
+(function() {
+  let clicks = 0, clickTimer = null;
+  let animating = false;
+  const credit = document.getElementById('easterCredit');
+  const canvas = document.getElementById('flowerCanvas');
+  const bg = document.getElementById('flowerBg');
+  const ctx = canvas.getContext('2d');
+  let particles = [], animFrame = null;
+
+  credit.addEventListener('click', () => {
+    clicks++;
+    clearTimeout(clickTimer);
+    clickTimer = setTimeout(() => { clicks = 0; }, 1200);
+    if (clicks >= 5) { clicks = 0; launchFlowers(); }
+  });
+
+  function launchFlowers() {
+    if (animating) return;
+    animating = true;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    canvas.style.display = 'block';
+    bg.classList.add('active');
+
+    particles = [];
+    const EMOJIS = ['🌸','🌺','🌼','🌻','💐','🌷','🪷','✨','🌹','💮'];
+    for (let i = 0; i < 90; i++) {
+      particles.push({
+        x: Math.random() * canvas.width,
+        y: canvas.height + 30 + Math.random() * 200,
+        vx: (Math.random() - 0.5) * 2.5,
+        vy: -(2.5 + Math.random() * 4),
+        angle: Math.random() * Math.PI * 2,
+        va: (Math.random() - 0.5) * 0.06,
+        size: 18 + Math.random() * 26,
+        emoji: EMOJIS[Math.floor(Math.random() * EMOJIS.length)],
+        alpha: 1,
+        delay: Math.random() * 60,
+        swing: Math.random() * 0.04,
+        swingOff: Math.random() * Math.PI * 2,
+        t: 0
+      });
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      let alive = 0;
+      particles.forEach(p => {
+        p.t++;
+        if (p.t < p.delay) { alive++; return; }
+        p.x += p.vx + Math.sin(p.t * p.swing + p.swingOff) * 0.8;
+        p.y += p.vy;
+        p.vy += 0.04;
+        p.angle += p.va;
+        if (p.y < canvas.height * 0.15) p.alpha -= 0.012;
+        if (p.alpha > 0 && p.y < canvas.height + 50) {
+          ctx.save();
+          ctx.globalAlpha = Math.max(0, p.alpha);
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.angle);
+          ctx.font = `${p.size}px serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(p.emoji, 0, 0);
+          ctx.restore();
+          alive++;
+        }
+      });
+      if (alive > 0) { animFrame = requestAnimationFrame(draw); }
+      else { finish(); }
+    }
+    animFrame = requestAnimationFrame(draw);
+
+    setTimeout(() => {
+      if (animating) finish();
+    }, 5500);
+  }
+
+  function finish() {
+    if (!animating) return;
+    animating = false;
+    if (animFrame) cancelAnimationFrame(animFrame);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    canvas.style.display = 'none';
+    bg.classList.remove('active');
+  }
+
+  canvas.addEventListener('click', finish);
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && animating) finish(); });
+  window.addEventListener('resize', () => { if (animating) { canvas.width = window.innerWidth; canvas.height = window.innerHeight; } });
+})();
+</script>
 </body>
 </html>

@@ -44,10 +44,44 @@ def col_index_to_letter(index: int) -> str:
     return result
 
 
+def _normalize_separators(expr: str) -> str:
+    """Replace ; argument separators with , for Python eval, ignoring those inside strings."""
+    result = []
+    in_string = False
+    string_char = None
+    depth = 0
+    for ch in expr:
+        if in_string:
+            result.append(ch)
+            if ch == string_char:
+                in_string = False
+        elif ch in ('"', "'"):
+            in_string = True
+            string_char = ch
+            result.append(ch)
+        elif ch == '(':
+            depth += 1
+            result.append(ch)
+        elif ch == ')':
+            depth -= 1
+            result.append(ch)
+        elif ch == ';' and depth > 0:
+            result.append(',')
+        else:
+            result.append(ch)
+    return ''.join(result)
+
+
 def formula_to_python(formula: str) -> str:
     expr = formula.strip()
     if expr.startswith('='):
         expr = expr[1:]
+
+    # Remove newlines and extra whitespace from multiline Excel formulas
+    expr = ' '.join(expr.split())
+
+    # Normalize semicolons to commas (Excel locale uses ; as argument separator)
+    expr = _normalize_separators(expr)
 
     func_map = {
         'SUMIFS':       '_SUMIFS',
@@ -168,12 +202,15 @@ def formula_to_python(formula: str) -> str:
         if r is None:
             return full
         return f'_cell({r},{c})'
-    expr = re.sub(r'(?<![_A-Za-z(,])\$?[A-Z]+\$?\d+(?![A-Za-z(])', replace_cell, expr, flags=re.IGNORECASE)
+    expr = re.sub(r'(?<![_A-Za-z])\$?[A-Z]+\$?\d+(?![A-Za-z(])', replace_cell, expr, flags=re.IGNORECASE)
 
     expr = expr.replace('^', '**')
     expr = re.sub(r'(?<![&])&(?![&])', '+', expr)  # & concatenation but not &&
     expr = re.sub(r'\bTRUE\b', 'True', expr, flags=re.IGNORECASE)
     expr = re.sub(r'\bFALSE\b', 'False', expr, flags=re.IGNORECASE)
+
+    # Convert lone = to == (Excel equality), but not <=, >=, <>, !=, ==
+    expr = re.sub(r'(?<![<>!=])=(?!=)', '==', expr)
 
     return expr
 
@@ -196,10 +233,34 @@ def extract_cell_refs(formula: str):
 
 def make_eval_context(cell_values: dict):
 
+    def _excel_date_num(v):
+        """Convert date/datetime/time to Excel serial number (days since 1900-01-01).
+        Excel date serial: Jan 1 1900 = 1.
+        time(0,0) means 'no date set' in Excel — treated as 0."""
+        from datetime import datetime as _dt, date as _date, time as _time
+        if isinstance(v, _dt):
+            base = _dt(1899, 12, 30)
+            return (v - base).days + (v - base).seconds / 86400
+        if isinstance(v, _date):
+            from datetime import datetime as _dt2
+            base = _dt2(1899, 12, 30)
+            return (_dt2(v.year, v.month, v.day) - base).days
+        if isinstance(v, _time):
+            # time(0,0) in a date-formatted cell = empty/no date = 0
+            if v.hour == 0 and v.minute == 0 and v.second == 0:
+                return 0
+            return v.hour * 3600 / 86400 + v.minute * 60 / 86400 + v.second / 86400
+        return v
+
     def _cell(r, c):
         v = cell_values.get((r, c), 0)
+        if v is None or v == '':
+            return 0
+        from datetime import datetime as _dt, date as _date, time as _time
+        if isinstance(v, (_dt, _date, _time)):
+            return _excel_date_num(v)
         try:
-            return float(v) if v not in (None, '') else 0
+            return float(v)
         except (TypeError, ValueError):
             return v or 0
 
@@ -211,10 +272,14 @@ def make_eval_context(cell_values: dict):
         for r in range(min(r1,r2), max(r1,r2)+1):
             for c in range(min(c1,c2), max(c1,c2)+1):
                 v = cell_values.get((r, c), 0)
-                try:
-                    vals.append(float(v) if v not in (None,'') else 0)
-                except (TypeError, ValueError):
-                    vals.append(v if v is not None else 0)
+                from datetime import datetime as _dt, date as _date, time as _time
+                if isinstance(v, (_dt, _date, _time)):
+                    vals.append(_excel_date_num(v))
+                else:
+                    try:
+                        vals.append(float(v) if v not in (None,'') else 0)
+                    except (TypeError, ValueError):
+                        vals.append(v if v is not None else 0)
         return vals
 
     def _RANGE_RAW(r1, c1, r2, c2):
@@ -477,8 +542,17 @@ def make_eval_context(cell_values: dict):
     def _COUNTBLANK(*args):
         return sum(1 for a in _flat(*args) if a in (None, ''))
 
-    def _AND(*args): return all(bool(a) for a in _flat(*args))
-    def _OR(*args):  return any(bool(a) for a in _flat(*args))
+    def _AND(*args):
+        try:
+            return all(bool(a) for a in _flat(*args))
+        except (TypeError, ValueError):
+            return False
+
+    def _OR(*args):
+        try:
+            return any(bool(a) for a in _flat(*args))
+        except (TypeError, ValueError):
+            return False
     def _NOT(v):     return not bool(v)
     def _XOR(*args): return sum(bool(a) for a in _flat(*args)) % 2 == 1
 
@@ -805,6 +879,40 @@ def recalculate_dependents(sheet, changed_row, changed_col, new_value):
     return updates
 
 
+def formula_display(formula: str) -> str:
+    """Convert stored formula (with , separators) to display format (with ; separators).
+    Only replaces commas that are argument separators inside function calls, not inside strings."""
+    if not formula:
+        return formula
+    result = []
+    in_string = False
+    string_char = None
+    depth = 0
+    i = 0
+    while i < len(formula):
+        ch = formula[i]
+        if in_string:
+            result.append(ch)
+            if ch == string_char:
+                in_string = False
+        elif ch in ('"', "'"):
+            in_string = True
+            string_char = ch
+            result.append(ch)
+        elif ch == '(':
+            depth += 1
+            result.append(ch)
+        elif ch == ')':
+            depth -= 1
+            result.append(ch)
+        elif ch == ',' and depth > 0:
+            result.append(';')
+        else:
+            result.append(ch)
+        i += 1
+    return ''.join(result)
+
+
 def format_value(value, fmt_type, decimal_places=2):
     if value is None or value == '': return ''
     try:
@@ -812,7 +920,9 @@ def format_value(value, fmt_type, decimal_places=2):
         if fmt_type == 'currency': return f"{f:,.{decimal_places}f} ₸"
         if fmt_type == 'percent':  return f"{f:.{decimal_places}f}%"
         if fmt_type == 'number':   return f"{f:,.{decimal_places}f}"
-        if f == int(f) and decimal_places == 0: return f"{int(f):,}"
-        return f"{f:,.{decimal_places}f}"
+        # No format_type — return as plain number without forced formatting
+        if f == int(f):
+            return str(int(f))
+        return str(round(f, 10)).rstrip('0').rstrip('.')
     except (TypeError, ValueError):
         return str(value)

@@ -8,7 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.models import User
 
 from .models import Sheet, Cell, ChangeHistory, SheetSnapshot, CellDependency
-from .formula_engine import recalculate_dependents, format_value
+from .formula_engine import recalculate_dependents, format_value, formula_display
 
 
 # ─── Auth ───────────────────────────────────────────────────────────────
@@ -89,7 +89,7 @@ def get_sheet_data(request, sheet_id):
             'formatted': format_value(c.value, c.format_type, c.decimal_places),
             'type': c.cell_type,
             'editable': c.is_editable,
-            'formula': c.formula or '',
+            'formula': formula_display(c.formula) if c.formula else '',
             'bold': c.bold,
             'italic': c.italic,
             'bg_color': c.bg_color,

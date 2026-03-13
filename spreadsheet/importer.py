@@ -17,18 +17,35 @@ from .formula_engine import formula_to_python, extract_cell_refs
 
 
 def _get_cell_format(number_format: str):
-    """Guess format_type from Excel number format string."""
-    if not number_format:
-        return '', 2
+    """Guess format_type from Excel number format string.
+    Only applies currency/percent/number formatting if explicitly present in the format string.
+    Plain numbers get no special format_type so they display as-is.
+    """
+    if not number_format or number_format == 'General':
+        return '', 0
     nf = number_format.lower()
-    if any(c in nf for c in ['₸', '$', '€', '£', '"руб"', 'rub', '#,##0']):
-        return 'currency', 2
+
+    # Currency: only if an explicit currency symbol is present
+    currency_symbols = ['₸', '$', '€', '£', '¥', '"руб"', 'rub', '[$₸', '[$€', '[$£', '[$¥']
+    if any(sym in nf for sym in currency_symbols):
+        # Count decimal places from format string
+        dec = 2
+        if '.00' in nf: dec = 2
+        elif '.0' in nf and '.00' not in nf: dec = 1
+        elif '0.' not in nf: dec = 0
+        return 'currency', dec
+
+    # Percent: only if % is present
     if '%' in nf:
-        return 'percent', 1
-    if '0.00' in nf or '#,##' in nf:
-        return 'number', 2
-    if '0.0' in nf:
-        return 'number', 1
+        dec = 1 if '.0' in nf else 0
+        return 'percent', dec
+
+    # Explicit decimal number format (e.g. 0.00, #,##0.00) — show as number
+    if re.search(r'0\.0+', nf):
+        dec = len(re.search(r'0\.(0+)', nf).group(1)) if re.search(r'0\.(0+)', nf) else 2
+        return 'number', dec
+
+    # Everything else (plain integers like #,##0 or General) — no special format
     return '', 0
 
 
@@ -124,6 +141,12 @@ def import_excel(filepath: str, sheet_index: int = 0, sheet_name: str = None) ->
             elif isinstance(raw, (int, float)):
                 value = str(raw)
                 is_editable = True
+            elif hasattr(raw, 'hour') and not hasattr(raw, 'year'):
+                # datetime.time — in Excel a zero date shows as time(0,0)
+                # treat as 0 (no date set)
+                from datetime import time as _time
+                value = '0' if raw == _time(0, 0) else str(raw.hour * 3600 / 86400)
+                is_editable = True
             elif isinstance(raw, str):
                 value = raw
                 # Detect headers/labels: non-numeric strings in first few rows or columns
@@ -195,18 +218,100 @@ def import_excel(filepath: str, sheet_index: int = 0, sheet_name: str = None) ->
 
 
 def _recalc_all(sheet):
-    """Do a full recalculation pass after import."""
-    from .formula_engine import recalculate_sheet, make_eval_context
+    """
+    Full recalculation after import.
+    Uses topological sort so formulas that depend on other formulas
+    are always evaluated after their dependencies.
+    """
+    from .formula_engine import make_eval_context, extract_cell_refs
+    import logging
+    from collections import defaultdict, deque
+    logger = logging.getLogger(__name__)
 
-    changed, cell_values = recalculate_sheet(sheet)
-    if changed:
-        cells = list(sheet.cells.filter(cell_type='formula'))
-        cell_map = {(c.row, c.col): c for c in cells}
-        to_save = []
-        for (r, c), val in changed.items():
-            cell = cell_map.get((r, c))
-            if cell:
-                cell.value = val
-                to_save.append(cell)
-        if to_save:
-            Cell.objects.bulk_update(to_save, ['value'])
+    cells = list(sheet.cells.all())
+    cell_map = {(c.row, c.col): c for c in cells}
+
+    # Seed cell_values with all non-formula cells
+    cell_values = {}
+    for c in cells:
+        if not c.python_formula:
+            try:
+                cell_values[(c.row, c.col)] = float(c.value) if c.value not in (None, '') else 0
+            except (TypeError, ValueError):
+                cell_values[(c.row, c.col)] = c.value or 0
+
+    # Override with raw_value for datetime cells (they get stored as str in .value)
+    from datetime import datetime as _dt, time as _time
+    for c in cells:
+        if not c.python_formula and c.raw_value:
+            rv = c.raw_value
+            # time(0,0) was stored as "00:00:00" or "0:00:00" — means "no date" = 0
+            if rv in ('0:00:00', '00:00:00'):
+                cell_values[(c.row, c.col)] = 0
+                continue
+            # openpyxl stores datetime repr like "2024-08-12 00:00:00"
+            for fmt in ('%Y-%m-%d %H:%M:%S', '%Y-%m-%d'):
+                try:
+                    cell_values[(c.row, c.col)] = _dt.strptime(rv, fmt)
+                    break
+                except ValueError:
+                    pass
+
+    formula_cells = [c for c in cells if c.python_formula]
+    if not formula_cells:
+        return
+
+    # Build dependency graph between formula cells
+    # adj[A] = list of formula cells that depend on A
+    formula_coords = {(c.row, c.col) for c in formula_cells}
+    in_degree = {(c.row, c.col): 0 for c in formula_cells}
+    dependents = defaultdict(list)  # coord -> list of formula coords that need it
+
+    for c in formula_cells:
+        refs = extract_cell_refs(c.formula or '')
+        for ref in refs:
+            if ref in formula_coords:
+                dependents[ref].append((c.row, c.col))
+                in_degree[(c.row, c.col)] += 1
+
+    # Kahn's algorithm — topological sort
+    queue = deque(coord for coord, deg in in_degree.items() if deg == 0)
+    topo_order = []
+    while queue:
+        coord = queue.popleft()
+        topo_order.append(coord)
+        for dep_coord in dependents[coord]:
+            in_degree[dep_coord] -= 1
+            if in_degree[dep_coord] == 0:
+                queue.append(dep_coord)
+
+    # If there are cycles, append remaining cells at the end
+    remaining = [coord for coord, deg in in_degree.items() if deg > 0]
+    topo_order.extend(remaining)
+
+    # Evaluate in topological order — each formula sees already-computed dependencies
+    to_save = []
+    for coord in topo_order:
+        c = cell_map.get(coord)
+        if not c or not c.python_formula:
+            continue
+        ctx = make_eval_context(cell_values)
+        try:
+            result = eval(c.python_formula, {"__builtins__": {}}, ctx)
+            if isinstance(result, (int, float)):
+                dp = c.decimal_places if c.decimal_places is not None else 10
+                result = round(float(result), dp)
+            new_val = str(result) if result is not None else '0'
+            cell_values[coord] = result
+            if new_val != c.value:
+                c.value = new_val
+                to_save.append(c)
+        except Exception as e:
+            logger.warning(
+                f"Formula error at {coord} formula=[{c.formula}] "
+                f"python=[{c.python_formula}]: {e}"
+            )
+            cell_values[coord] = 0
+
+    if to_save:
+        Cell.objects.bulk_update(to_save, ['value'])
